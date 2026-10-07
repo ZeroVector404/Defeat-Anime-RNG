@@ -1,6 +1,7 @@
 -- Defeat Anime RNG | Tree Hideout raid - auto Centipede
 -- Slides to every Centipede and hits it with the sword, steps out of falling debris,
--- and presses Ready / Replay so the raid keeps restarting. Run it inside the raid.
+-- and presses Ready / Replay so the raid keeps restarting.
+-- Run it anywhere: in the main game it enters the raid, in another event it goes back first.
 
 local CONFIG = {
     ATTACK_INTERVAL   = 0.12,  -- seconds between sword hits
@@ -14,6 +15,12 @@ local CONFIG = {
     AUTO_REPLAY       = true,  -- press Replay on the result screen
     REPLAY_DELAY      = 3,     -- seconds to wait before pressing Replay
     SHOW_BUTTON       = true,  -- small ON/OFF button on screen
+
+    AUTO_ENTER        = true,       -- in the main game: create the raid party and start it
+    RAID_NAME         = "11th Ward", -- Tree Hideout
+    DIFFICULTY        = "Medium",   -- "Medium", "Hard" or "Extreme"
+    ENTER_DELAY       = 8,          -- seconds to wait in the main game before entering
+    SCRIPT_URL        = "https://raw.githubusercontent.com/ZeroVector404/Defeat-Anime-RNG/refs/heads/main/CentipedeRaid.lua",
 }
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -26,6 +33,55 @@ local LocalPlayer       = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local env = (getgenv and getgenv()) or _G
 if env.__CentipedeRaid then
     pcall(env.__CentipedeRaid.stop)
+end
+
+-- ---------------------------------------------------------------- place guard
+-- The script only farms inside the Tree Hideout raid. In the main game it enters the raid,
+-- in any other place (another event) it goes back to the main game first.
+local MAIN_PLACE = 92606991708989
+local RAID_PLACE = 134342669880221
+
+-- keep the script alive across teleports
+local queueTeleport = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport)
+if queueTeleport and CONFIG.SCRIPT_URL ~= "" then
+    pcall(queueTeleport, string.format('loadstring(game:HttpGet("%s"))()', CONFIG.SCRIPT_URL))
+end
+
+if game.PlaceId ~= RAID_PLACE then
+    local TeleportService = game:GetService("TeleportService")
+
+    if game.PlaceId ~= MAIN_PLACE then
+        print("[CentipedeRaid] wrong place, going back to the main game")
+        for _ = 1, 20 do
+            pcall(TeleportService.Teleport, TeleportService, MAIN_PLACE, LocalPlayer)
+            task.wait(10)
+        end
+        return
+    end
+
+    if not CONFIG.AUTO_ENTER then return end
+
+    local events = ReplicatedStorage:WaitForChild("RemoteEvents", 60)
+    local party  = events and events:WaitForChild("RaidPartyRequestFunction", 30)
+    if not party then return end
+    task.wait(CONFIG.ENTER_DELAY)
+
+    for _ = 1, 60 do
+        -- Create can fail with "Cooldown" or because a party already exists: Start is tried either way
+        pcall(party.InvokeServer, party, "Create", CONFIG.RAID_NAME, CONFIG.DIFFICULTY)
+        task.wait(1)
+        local ok2, started, why = pcall(party.InvokeServer, party, "Start")
+        if ok2 and started then
+            print("[CentipedeRaid] raid started")
+            return
+        end
+        if why == "PrestigeRequired" then
+            warn("[CentipedeRaid] this account needs the Gold I prestige rank to enter the raid")
+            return
+        end
+        task.wait(5)
+    end
+    return
 end
 
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
