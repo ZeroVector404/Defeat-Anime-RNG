@@ -18,7 +18,9 @@ local CONFIG = {
 
     AUTO_ENTER        = true,       -- in the main game: create the raid party and start it
     RAID_NAME         = "11th Ward", -- Tree Hideout
-    DIFFICULTY        = "Hard",     -- locked to Hard
+    DIFFICULTY        = "Extreme",  -- locked to Extreme
+    RAID_MODE         = "Kaneki",   -- game mode name of the Tree Hideout raid
+    WRONG_EVENT_SECONDS = 12,       -- leave if the game is in another mode for this long
     ENTER_DELAY       = 8,          -- seconds to wait in the main game before entering
     SCRIPT_URL        = "https://raw.githubusercontent.com/ZeroVector404/Defeat-Anime-RNG/refs/heads/main/CentipedeRaid.lua",
 }
@@ -400,7 +402,7 @@ if CONFIG.SHOW_BUTTON then
         end)
 
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.fromOffset(260, 36)
+        label.Size = UDim2.fromOffset(260, 52)
         label.Position = UDim2.new(0, 12, 0.5, 38)
         label.BackgroundTransparency = 1
         label.TextColor3 = Color3.new(1, 1, 1)
@@ -412,8 +414,9 @@ if CONFIG.SHOW_BUTTON then
         label.Parent = gui
         task.spawn(function()
             while running do
-                label.Text = string.format("%s\nRuns %d | Wins %d | Centipedes %d | Dodged %d",
-                    status, stats.runs, stats.wins, stats.centipedes, stats.dodges)
+                label.Text = string.format("%s\nRuns %d | Wins %d | Centipedes %d | Dodged %d\nMode: %s",
+                    status, stats.runs, stats.wins, stats.centipedes, stats.dodges,
+                    tostring(workspace:GetAttribute("ActiveGamemode")))
                 task.wait(0.4)
             end
         end)
@@ -429,3 +432,30 @@ env.__CentipedeRaid = {
         if gui then pcall(function() gui:Destroy() end) end
     end,
 }
+
+-- ---------------------------------------------------------------- wrong event guard
+-- The raid place also hosts other game modes (for example the Infinite Tower). If the game
+-- puts us in another mode, leave to the main game and come back through the raid portal.
+task.spawn(function()
+    local wrongSince
+    while running do
+        task.wait(2)
+        local mode = workspace:GetAttribute("ActiveGamemode")
+        if mode == nil or mode == CONFIG.RAID_MODE then
+            wrongSince = nil
+        else
+            wrongSince = wrongSince or os.clock()
+            status = "Wrong event (" .. tostring(mode) .. ")"
+            if os.clock() - wrongSince >= CONFIG.WRONG_EVENT_SECONDS then
+                print("[CentipedeRaid] wrong event '" .. tostring(mode) .. "', going back to the main game")
+                local TeleportService = game:GetService("TeleportService")
+                env.__CentipedeRaid.stop()
+                for _ = 1, 20 do
+                    pcall(TeleportService.Teleport, TeleportService, MAIN_PLACE, LocalPlayer)
+                    task.wait(10)
+                end
+                return
+            end
+        end
+    end
+end)
