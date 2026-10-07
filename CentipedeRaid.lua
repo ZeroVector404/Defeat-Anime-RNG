@@ -18,7 +18,7 @@ local CONFIG = {
 
     AUTO_ENTER        = true,       -- in the main game: create the raid party and start it
     RAID_NAME         = "11th Ward", -- Tree Hideout
-    DIFFICULTY        = "Medium",   -- "Medium", "Hard" or "Extreme"
+    DIFFICULTY        = "Hard",     -- locked to Hard
     ENTER_DELAY       = 8,          -- seconds to wait in the main game before entering
     SCRIPT_URL        = "https://raw.githubusercontent.com/ZeroVector404/Defeat-Anime-RNG/refs/heads/main/CentipedeRaid.lua",
 }
