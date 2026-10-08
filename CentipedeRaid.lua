@@ -13,7 +13,8 @@ local CONFIG = {
     AUTO_READY        = true,  -- press Ready in the raid lobby
     READY_DELAY       = 6,     -- seconds to wait in the lobby before pressing Ready
     AUTO_REPLAY       = true,  -- press Replay on the result screen
-    REPLAY_DELAY      = 3,     -- seconds to wait before pressing Replay
+    REPLAY_DELAY      = 3,     -- seconds to wait before pressing the result button
+    RESULT_ACTION     = "Return", -- "Return" = leave to the main game, then re-enter (stays out of other modes); "Replay" = replay in place
     SHOW_BUTTON       = true,  -- small ON/OFF button on screen
 
     AUTO_ENTER        = true,       -- in the main game: create the raid party and start it
@@ -362,7 +363,14 @@ if resultEvent and actionEvent then
         if not (enabled and CONFIG.AUTO_REPLAY) then return end
         task.delay(CONFIG.REPLAY_DELAY, function()
             if running and enabled then
-                actionEvent:FireServer("Replay")
+                actionEvent:FireServer(CONFIG.RESULT_ACTION)
+                if CONFIG.RESULT_ACTION == "Return" then
+                    task.delay(15, function()
+                        if running and enabled and game.PlaceId ~= MAIN_PLACE then
+                            pcall(function() game:GetService("TeleportService"):Teleport(MAIN_PLACE) end)
+                        end
+                    end)
+                end
             end
         end)
     end)
